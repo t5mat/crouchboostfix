@@ -118,6 +118,8 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
         return APLRes_Failure;
     }
 
+    RegPluginLibrary("boostfix");
+
     g_late = late;
     return APLRes_Success;
 }
