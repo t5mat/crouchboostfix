@@ -66,26 +66,20 @@ enum struct Engine
         this.m_vecPushDir = -1;
     }
 
-    void InitializeCBaseEntityOffsets(int entity)
+    void InitializeDataOffsets(int entity, const char[] classname)
     {
-        if (this.m_hMoveParent != -1) {
-            return;
+        if (this.m_hMoveParent == -1) {
+            (this.m_hMoveParent = FindDataMapInfo(entity, "m_hMoveParent")) == -1 && SetFailState("CBaseEntity::m_hMoveParent");
+            (this.m_vecAbsOrigin = FindDataMapInfo(entity, "m_vecAbsOrigin")) == -1 && SetFailState("CBaseEntity::m_vecAbsOrigin");
+            (this.m_angAbsRotation = FindDataMapInfo(entity, "m_angAbsRotation")) == -1 && SetFailState("CBaseEntity::m_angAbsRotation");
+            (this.m_vecAbsVelocity = FindDataMapInfo(entity, "m_vecAbsVelocity")) == -1 && SetFailState("CBaseEntity::m_vecAbsVelocity");
+            (this.m_flSpeed = FindDataMapInfo(entity, "m_flSpeed")) == -1 && SetFailState("CBaseEntity::m_flSpeed");
         }
 
-        (this.m_hMoveParent = FindDataMapInfo(entity, "m_hMoveParent")) == -1 && SetFailState("CBaseEntity::m_hMoveParent");
-        (this.m_vecAbsOrigin = FindDataMapInfo(entity, "m_vecAbsOrigin")) == -1 && SetFailState("CBaseEntity::m_vecAbsOrigin");
-        (this.m_angAbsRotation = FindDataMapInfo(entity, "m_angAbsRotation")) == -1 && SetFailState("CBaseEntity::m_angAbsRotation");
-        (this.m_vecAbsVelocity = FindDataMapInfo(entity, "m_vecAbsVelocity")) == -1 && SetFailState("CBaseEntity::m_vecAbsVelocity");
-        (this.m_flSpeed = FindDataMapInfo(entity, "m_flSpeed")) == -1 && SetFailState("CBaseEntity::m_flSpeed");
-    }
-
-    void InitializeCTriggerPushOffsets(int entity)
-    {
-        if (this.m_vecPushDir != -1) {
+        if (this.m_vecPushDir == -1 && StrEqual(classname, "trigger_push")) {
+            (this.m_vecPushDir = FindDataMapInfo(entity, "m_vecPushDir")) == -1 && SetFailState("CTriggerPush::m_vecPushDir");
             return;
         }
-
-        (this.m_vecPushDir = FindDataMapInfo(entity, "m_vecPushDir")) == -1 && SetFailState("CTriggerPush::m_vecPushDir");
     }
 
     bool PassesTriggerFilters(int entity, int other)
@@ -133,7 +127,7 @@ public void OnPluginStart()
 
     if (g_late) {
         for (int e = 0; e < sizeof(Client::touching); ++e) {
-            if ((e < 1 || e > sizeof(g_clients) - 1) && IsValidEntity(e)) {
+            if (IsValidEntity(e)) {
                 char classname[64];
                 GetEntityClassname(e, classname, sizeof(classname));
                 OnEntityCreated(e, classname);
@@ -150,11 +144,9 @@ public void OnPluginStart()
 
 public void OnEntityCreated(int entity, const char[] classname)
 {
-    g_engine.InitializeCBaseEntityOffsets(entity);
+    g_engine.InitializeDataOffsets(entity, classname);
 
     if (StrEqual(classname, "trigger_push")) {
-        g_engine.InitializeCTriggerPushOffsets(entity);
-
         for (int i = 0; i < sizeof(g_clients); ++i) {
             g_clients[i].touching[entity] = false;
         }
