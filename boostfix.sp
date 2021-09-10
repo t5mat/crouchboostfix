@@ -125,7 +125,7 @@ public void OnPluginStart()
     g_boostfix_pushfix = CreateConVar("boostfix_pushfix", "1", "Enable trigger_push fix", FCVAR_NOTIFY, true, 0.0, true, 1.0);
     g_boostfix_crouchboostfix = CreateConVar("boostfix_crouchboostfix", "1", "Enable crouchboost prevention", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 
-    AutoExecConfig(true, "plugin.boostfix");
+    AutoExecConfig();
 
     if (g_late) {
         for (int e = 0; e < sizeof(Client::touching); ++e) {
