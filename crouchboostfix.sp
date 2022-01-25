@@ -7,7 +7,7 @@
 
 public Plugin myinfo = {
     name = "crouchboostfix",
-    version = "1.0.0",
+    version = "2.0.0",
     author = "https://github.com/t5mat",
     description = "Prevents crouchboosting",
     url = "https://github.com/t5mat/crouchboostfix",
