@@ -13,6 +13,10 @@ public Plugin myinfo = {
     url = "https://github.com/t5mat/boostfix",
 };
 
+#define CROUCHBOOST_TIME (0.25)
+
+#define MAX_ENTITIES (4096)
+
 #define SOLID_NONE (0)
 #define FSOLID_NOT_SOLID (0x0004)
 
@@ -23,8 +27,6 @@ public Plugin myinfo = {
 #define VEC_DUCK_HULL_MIN (view_as<float>({-16.0, -16.0, 0.0}))
 #define VEC_DUCK_HULL_MAX (view_as<float>({16.0, 16.0, 54.0}))
 
-#define CROUCHBOOST_TIME (0.25)
-
 enum struct Engine
 {
     int m_nSolidType;
@@ -33,41 +35,47 @@ enum struct Engine
     int m_vecBaseVelocity;
     int m_flLaggedMovementValue;
     int m_hGroundEntity;
-    Handle PassesTriggerFilters_;
+
+    Handle _PassesTriggerFilters;
+
     int m_hMoveParent;
     int m_vecAbsOrigin;
     int m_angAbsRotation;
     int m_vecAbsVelocity;
     int m_flSpeed;
+
     int m_vecPushDir;
 
-    void Initialize()
+    void Initialize(int entity = -1, const char[] classname = "")
     {
-        (this.m_nSolidType = FindSendPropInfo("CBaseEntity", "m_nSolidType")) == -1 && SetFailState("CBaseEntity::m_nSolidType");
-        (this.m_usSolidFlags = FindSendPropInfo("CBaseEntity", "m_usSolidFlags")) == -1 && SetFailState("CBaseEntity::m_usSolidFlags");
-        (this.m_spawnflags = FindSendPropInfo("CBaseTrigger", "m_spawnflags")) == -1 && SetFailState("CBaseTrigger::m_spawnflags");
-        (this.m_vecBaseVelocity = FindSendPropInfo("CBasePlayer", "m_vecBaseVelocity")) == -1 && SetFailState("CBasePlayer::m_vecBaseVelocity");
-        (this.m_flLaggedMovementValue = FindSendPropInfo("CBasePlayer", "m_flLaggedMovementValue")) == -1 && SetFailState("CBasePlayer::m_flLaggedMovementValue");
-        (this.m_hGroundEntity = FindSendPropInfo("CBasePlayer", "m_hGroundEntity")) == -1 && SetFailState("CBasePlayer::m_hGroundEntity");
+        static bool start = false;
+        if (!start) {
+            start = true;
 
-        GameData gd;
-        (gd = new GameData("rngfix.games")) == null && SetFailState("rngfix.games");
+            (this.m_nSolidType = FindSendPropInfo("CBaseEntity", "m_nSolidType")) == -1 && SetFailState("CBaseEntity::m_nSolidType");
+            (this.m_usSolidFlags = FindSendPropInfo("CBaseEntity", "m_usSolidFlags")) == -1 && SetFailState("CBaseEntity::m_usSolidFlags");
+            (this.m_spawnflags = FindSendPropInfo("CBaseTrigger", "m_spawnflags")) == -1 && SetFailState("CBaseTrigger::m_spawnflags");
+            (this.m_vecBaseVelocity = FindSendPropInfo("CBasePlayer", "m_vecBaseVelocity")) == -1 && SetFailState("CBasePlayer::m_vecBaseVelocity");
+            (this.m_flLaggedMovementValue = FindSendPropInfo("CBasePlayer", "m_flLaggedMovementValue")) == -1 && SetFailState("CBasePlayer::m_flLaggedMovementValue");
+            (this.m_hGroundEntity = FindSendPropInfo("CBasePlayer", "m_hGroundEntity")) == -1 && SetFailState("CBasePlayer::m_hGroundEntity");
 
-        StartPrepSDKCall(SDKCall_Entity);
-        PrepSDKCall_SetFromConf(gd, SDKConf_Virtual, "CBaseTrigger::PassesTriggerFilters");
-        PrepSDKCall_SetReturnInfo(SDKType_Bool, SDKPass_Plain);
-        PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
-        (this.PassesTriggerFilters_ = EndPrepSDKCall()) == null && SetFailState("CBaseTrigger::PassesTriggerFilters");
+            {
+                GameData gd;
+                (gd = new GameData("rngfix.games")) == null && SetFailState("rngfix.games");
 
-        delete gd;
+                StartPrepSDKCall(SDKCall_Entity);
+                PrepSDKCall_SetFromConf(gd, SDKConf_Virtual, "CBaseTrigger::PassesTriggerFilters");
+                PrepSDKCall_SetReturnInfo(SDKType_Bool, SDKPass_Plain);
+                PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
+                (this._PassesTriggerFilters = EndPrepSDKCall()) == null && SetFailState("CBaseTrigger::PassesTriggerFilters");
 
-        this.m_hMoveParent = -1;
-        this.m_vecPushDir = -1;
-    }
+                delete gd;
+            }
+        }
 
-    void InitializeDataOffsets(int entity, const char[] classname)
-    {
-        if (this.m_hMoveParent == -1) {
+        static bool base = false;
+        if (!base && entity != -1) {
+            base = true;
             (this.m_hMoveParent = FindDataMapInfo(entity, "m_hMoveParent")) == -1 && SetFailState("CBaseEntity::m_hMoveParent");
             (this.m_vecAbsOrigin = FindDataMapInfo(entity, "m_vecAbsOrigin")) == -1 && SetFailState("CBaseEntity::m_vecAbsOrigin");
             (this.m_angAbsRotation = FindDataMapInfo(entity, "m_angAbsRotation")) == -1 && SetFailState("CBaseEntity::m_angAbsRotation");
@@ -75,7 +83,9 @@ enum struct Engine
             (this.m_flSpeed = FindDataMapInfo(entity, "m_flSpeed")) == -1 && SetFailState("CBaseEntity::m_flSpeed");
         }
 
-        if (this.m_vecPushDir == -1 && StrEqual(classname, "trigger_push")) {
+        static bool trigger_push = false;
+        if (!trigger_push && StrEqual(classname, "trigger_push")) {
+            trigger_push = true;
             (this.m_vecPushDir = FindDataMapInfo(entity, "m_vecPushDir")) == -1 && SetFailState("CTriggerPush::m_vecPushDir");
             return;
         }
@@ -83,7 +93,7 @@ enum struct Engine
 
     bool PassesTriggerFilters(int entity, int other)
     {
-        return SDKCall(this.PassesTriggerFilters_, entity, other);
+        return SDKCall(this._PassesTriggerFilters, entity, other);
     }
 }
 
@@ -93,9 +103,9 @@ enum struct Client
     float velocity[3];
     int flags;
     float frame;
-    bool touching[4096];
-    float endTouchFrame[4096];
-    bool endTouchDuck[4096];
+    bool touching[MAX_ENTITIES];
+    float endTouchFrame[MAX_ENTITIES];
+    bool endTouchDuck[MAX_ENTITIES];
 }
 
 bool g_late;
@@ -148,7 +158,7 @@ public void OnPluginStart()
 
 public void OnEntityCreated(int entity, const char[] classname)
 {
-    g_engine.InitializeDataOffsets(entity, classname);
+    g_engine.Initialize(entity, classname);
 
     if (StrEqual(classname, "trigger_push")) {
         for (int i = 0; i < sizeof(g_clients); ++i) {
