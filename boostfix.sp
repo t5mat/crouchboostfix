@@ -17,11 +17,6 @@ public Plugin myinfo = {
 
 #define MAX_ENTITIES (4096)
 
-#define SOLID_NONE (0)
-#define FSOLID_NOT_SOLID (0x0004)
-
-#define SF_TRIG_PUSH_ONCE (0x80)
-
 #define VEC_HULL_MIN (view_as<float>({-16.0, -16.0, 0.0}))
 #define VEC_HULL_MAX (view_as<float>({16.0, 16.0, 72.0}))
 #define VEC_DUCK_HULL_MIN (view_as<float>({-16.0, -16.0, 0.0}))
@@ -29,71 +24,25 @@ public Plugin myinfo = {
 
 enum struct Engine
 {
-    int m_nSolidType;
-    int m_usSolidFlags;
-    int m_spawnflags;
-    int m_vecBaseVelocity;
     int m_flLaggedMovementValue;
-    int m_hGroundEntity;
 
-    Handle _PassesTriggerFilters;
-
-    int m_hMoveParent;
     int m_vecAbsOrigin;
-    int m_angAbsRotation;
     int m_vecAbsVelocity;
-    int m_flSpeed;
-
-    int m_vecPushDir;
 
     void Initialize(int entity = -1, const char[] classname = "")
     {
         static bool start = false;
         if (!start) {
             start = true;
-
-            (this.m_nSolidType = FindSendPropInfo("CBaseEntity", "m_nSolidType")) == -1 && SetFailState("CBaseEntity::m_nSolidType");
-            (this.m_usSolidFlags = FindSendPropInfo("CBaseEntity", "m_usSolidFlags")) == -1 && SetFailState("CBaseEntity::m_usSolidFlags");
-            (this.m_spawnflags = FindSendPropInfo("CBaseTrigger", "m_spawnflags")) == -1 && SetFailState("CBaseTrigger::m_spawnflags");
-            (this.m_vecBaseVelocity = FindSendPropInfo("CBasePlayer", "m_vecBaseVelocity")) == -1 && SetFailState("CBasePlayer::m_vecBaseVelocity");
             (this.m_flLaggedMovementValue = FindSendPropInfo("CBasePlayer", "m_flLaggedMovementValue")) == -1 && SetFailState("CBasePlayer::m_flLaggedMovementValue");
-            (this.m_hGroundEntity = FindSendPropInfo("CBasePlayer", "m_hGroundEntity")) == -1 && SetFailState("CBasePlayer::m_hGroundEntity");
-
-            {
-                GameData gd;
-                (gd = new GameData("rngfix.games")) == null && SetFailState("rngfix.games");
-
-                StartPrepSDKCall(SDKCall_Entity);
-                PrepSDKCall_SetFromConf(gd, SDKConf_Virtual, "CBaseTrigger::PassesTriggerFilters");
-                PrepSDKCall_SetReturnInfo(SDKType_Bool, SDKPass_Plain);
-                PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
-                (this._PassesTriggerFilters = EndPrepSDKCall()) == null && SetFailState("CBaseTrigger::PassesTriggerFilters");
-
-                delete gd;
-            }
         }
 
         static bool base = false;
         if (!base && entity != -1) {
             base = true;
-            (this.m_hMoveParent = FindDataMapInfo(entity, "m_hMoveParent")) == -1 && SetFailState("CBaseEntity::m_hMoveParent");
             (this.m_vecAbsOrigin = FindDataMapInfo(entity, "m_vecAbsOrigin")) == -1 && SetFailState("CBaseEntity::m_vecAbsOrigin");
-            (this.m_angAbsRotation = FindDataMapInfo(entity, "m_angAbsRotation")) == -1 && SetFailState("CBaseEntity::m_angAbsRotation");
             (this.m_vecAbsVelocity = FindDataMapInfo(entity, "m_vecAbsVelocity")) == -1 && SetFailState("CBaseEntity::m_vecAbsVelocity");
-            (this.m_flSpeed = FindDataMapInfo(entity, "m_flSpeed")) == -1 && SetFailState("CBaseEntity::m_flSpeed");
         }
-
-        static bool trigger_push = false;
-        if (!trigger_push && StrEqual(classname, "trigger_push")) {
-            trigger_push = true;
-            (this.m_vecPushDir = FindDataMapInfo(entity, "m_vecPushDir")) == -1 && SetFailState("CTriggerPush::m_vecPushDir");
-            return;
-        }
-    }
-
-    bool PassesTriggerFilters(int entity, int other)
-    {
-        return SDKCall(this._PassesTriggerFilters, entity, other);
     }
 }
 
@@ -109,7 +58,6 @@ enum struct Client
 }
 
 bool g_late;
-ConVar g_boostfix_pushfix;
 ConVar g_boostfix_crouchboostfix;
 Engine g_engine;
 Client g_clients[MAXPLAYERS + 1];
@@ -131,7 +79,6 @@ public void OnPluginStart()
 {
     g_engine.Initialize();
 
-    g_boostfix_pushfix = CreateConVar("boostfix_pushfix", "1", "Enable trigger_push fix", FCVAR_NOTIFY, true, 0.0, true, 1.0);
     g_boostfix_crouchboostfix = CreateConVar("boostfix_crouchboostfix", "1", "Enable crouchboost prevention", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 
     AutoExecConfig();
@@ -280,94 +227,7 @@ Action Hook_PushTouch(int entity, int other)
         return Plugin_Handled;
     }
 
-    MoveType moveType = GetEntityMoveType(other);
-
-    if (moveType == MOVETYPE_VPHYSICS) {
-        return Plugin_Continue;
-    }
-
-    if (!g_boostfix_pushfix.BoolValue) {
-        return Plugin_Continue;
-    }
-
-    // https://github.com/perilouswithadollarsign/cstrike15_src/blob/29e4c1fda9698d5cebcdaf1a0de4b829fa149bf8/game/server/triggers.cpp#L2545
-
-    if (moveType == MOVETYPE_NONE || moveType == MOVETYPE_PUSH) {
-        return Plugin_Handled;
-    }
-
-    if ((GetEntData(other, g_engine.m_nSolidType, 1) == SOLID_NONE) || (GetEntData(other, g_engine.m_usSolidFlags, 2) & FSOLID_NOT_SOLID)) {
-        return Plugin_Handled;
-    }
-
-    if (GetEntDataEnt2(other, g_engine.m_hMoveParent) != -1) {
-        return Plugin_Handled;
-    }
-
-    if (!g_engine.PassesTriggerFilters(entity, other)) {
-        return Plugin_Handled;
-    }
-
-    float direction[3];
-    {
-        float rotation[3];
-        GetEntDataVector(entity, g_engine.m_angAbsRotation, rotation);
-
-        float local[3];
-        GetEntDataVector(entity, g_engine.m_vecPushDir, local);
-
-        float sy = Sine(DegToRad(rotation[1]));
-        float cy = Cosine(DegToRad(rotation[1]));
-        float sp = Sine(DegToRad(rotation[0]));
-        float cp = Cosine(DegToRad(rotation[0]));
-        float sr = Sine(DegToRad(rotation[2]));
-        float cr = Cosine(DegToRad(rotation[2]));
-
-        direction[0] = local[0] * (cp * cy) + local[1] * (sp * sr * cy - cr * sy) + local[2] * (sp * cr * cy + sr * sy);
-        direction[1] = local[0] * (cp * sy) + local[1] * (sp * sr * sy + cr * cy) + local[2] * (sp * cr * sy - sr * cy);
-        direction[2] = local[0] * (-sp) + local[1] * (sr * cp) + local[2] * (cr * cp);
-    }
-
-    float speed = GetEntDataFloat(entity, g_engine.m_flSpeed);
-
-    float push[3];
-    push = direction;
-    ScaleVector(push, speed);
-
-    if (GetEntData(entity, g_engine.m_spawnflags) & SF_TRIG_PUSH_ONCE) {
-        float velocity[3];
-        GetEntDataVector(other, g_engine.m_vecAbsVelocity, velocity);
-        AddVectors(velocity, push, velocity);
-
-        TeleportEntity(other, NULL_VECTOR, NULL_VECTOR, velocity);
-        if (direction[2] > 0.0) {
-            SetEntDataEnt2(other, g_engine.m_hGroundEntity, -1);
-        }
-
-        RemoveEdict(entity);
-        return Plugin_Handled;
-    }
-
-    int flags = GetEntityFlags(other);
-
-    if (flags & FL_BASEVELOCITY) {
-        float base[3];
-        GetEntDataVector(other, g_engine.m_vecBaseVelocity, base);
-        AddVectors(push, base, push);
-    }
-
-    // https://forums.alliedmods.net/showpost.php?p=2561673&postcount=17
-
-    float velocity[3];
-    GetEntDataVector(other, g_engine.m_vecAbsVelocity, velocity);
-    velocity[2] += push[2] * GetTickInterval() * GetEntDataFloat(other, g_engine.m_flLaggedMovementValue);
-    push[2] = 0.0;
-
-    TeleportEntity(other, NULL_VECTOR, NULL_VECTOR, velocity);
-    SetEntDataVector(other, g_engine.m_vecBaseVelocity, push);
-    SetEntityFlags(other, flags | FL_BASEVELOCITY);
-
-    return Plugin_Handled;
+    return Plugin_Continue;
 }
 
 bool g_DoesHullEntityIntersect_hit;
