@@ -65,13 +65,7 @@ Client g_clients[MAXPLAYERS + 1];
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
-    if (GetEngineVersion() != Engine_CSGO) {
-        FormatEx(error, err_max, "Not supported");
-        return APLRes_Failure;
-    }
-
     RegPluginLibrary("crouchboostfix");
-
     g_late = late;
     return APLRes_Success;
 }
