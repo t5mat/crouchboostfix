@@ -17,7 +17,6 @@ public Plugin myinfo = {
 #define FSOLID_NOT_SOLID (0x0004)
 
 #define SF_TRIG_PUSH_ONCE (0x80)
-#define SF_TRIG_PUSH_AFFECT_PLAYER_ON_LADDER (0x100)
 
 #define VEC_HULL_MIN (view_as<float>({-16.0, -16.0, 0.0}))
 #define VEC_HULL_MAX (view_as<float>({16.0, 16.0, 72.0}))
