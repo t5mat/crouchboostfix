@@ -17,13 +17,10 @@ public Plugin myinfo = {
 
 #define MAX_ENTITIES (4096)
 
-#define VEC_HULL_MIN (view_as<float>({-16.0, -16.0, 0.0}))
-#define VEC_HULL_MAX (view_as<float>({16.0, 16.0, 72.0}))
-#define VEC_DUCK_HULL_MIN (view_as<float>({-16.0, -16.0, 0.0}))
-#define VEC_DUCK_HULL_MAX (view_as<float>({16.0, 16.0, 54.0}))
-
 enum struct Engine
 {
+    int m_vecMins;
+    int m_vecMaxs;
     int m_flLaggedMovementValue;
 
     int m_vecAbsOrigin;
@@ -34,6 +31,8 @@ enum struct Engine
         static bool start = false;
         if (!start) {
             start = true;
+            (this.m_vecMins = FindSendPropInfo("CBaseEntity", "m_vecMins")) == -1 && SetFailState("CBaseEntity::m_vecMins");
+            (this.m_vecMaxs = FindSendPropInfo("CBaseEntity", "m_vecMaxs")) == -1 && SetFailState("CBaseEntity::m_vecMaxs");
             (this.m_flLaggedMovementValue = FindSendPropInfo("CBasePlayer", "m_flLaggedMovementValue")) == -1 && SetFailState("CBasePlayer::m_flLaggedMovementValue");
         }
 
@@ -50,6 +49,8 @@ enum struct Client
 {
     float origin[3];
     float velocity[3];
+    float mins[3];
+    float maxs[3];
     int flags;
     float frame;
     bool touching[MAX_ENTITIES];
@@ -145,6 +146,8 @@ void Hook_ClientPreThinkPost(int client)
 {
     GetEntDataVector(client, g_engine.m_vecAbsOrigin, g_clients[client].origin);
     GetEntDataVector(client, g_engine.m_vecAbsVelocity, g_clients[client].velocity);
+    GetEntDataVector(client, g_engine.m_vecMins, g_clients[client].mins);
+    GetEntDataVector(client, g_engine.m_vecMaxs, g_clients[client].maxs);
     g_clients[client].flags = GetEntityFlags(client);
 
     g_clients[client].frame += GetEntDataFloat(client, g_engine.m_flLaggedMovementValue);
@@ -169,7 +172,7 @@ Action Hook_PushStartTouch(int entity, int other)
                     origin = g_clients[other].velocity;
                     ScaleVector(origin, GetTickInterval() * GetEntDataFloat(other, g_engine.m_flLaggedMovementValue));
                     AddVectors(origin, g_clients[other].origin, origin);
-                    if (!DoesHullEntityIntersect(origin, VEC_DUCK_HULL_MIN, VEC_DUCK_HULL_MAX, entity)) {
+                    if (!DoesHullEntityIntersect(origin, g_clients[other].mins, g_clients[other].maxs, entity)) {
                         // This StartTouch was caused by a mid-air unduck
                         startTouchUnduck = true;
                     }
@@ -209,7 +212,7 @@ void Hook_PushEndTouchPost(int entity, int other)
             origin = g_clients[other].velocity;
             ScaleVector(origin, GetTickInterval() * GetEntDataFloat(other, g_engine.m_flLaggedMovementValue));
             AddVectors(origin, g_clients[other].origin, origin);
-            if (DoesHullEntityIntersect(origin, VEC_HULL_MIN, VEC_HULL_MAX, entity)) {
+            if (DoesHullEntityIntersect(origin, g_clients[other].mins, g_clients[other].maxs, entity)) {
                 // This EndTouch was caused by a mid-air duck
                 g_clients[other].endTouchDuck[entity] = true;
             }
