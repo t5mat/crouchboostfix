@@ -78,8 +78,12 @@ public void OnPluginStart()
 
     AutoExecConfig();
 
+    HookEntityOutput("trigger_multiple", "OnStartTouch", Hook_EntityOutput);
+    HookEntityOutput("trigger_multiple", "OnEndTouch", Hook_EntityOutput);
     HookEntityOutput("trigger_push", "OnStartTouch", Hook_EntityOutput);
     HookEntityOutput("trigger_push", "OnEndTouch", Hook_EntityOutput);
+    HookEntityOutput("trigger_gravity", "OnStartTouch", Hook_EntityOutput);
+    HookEntityOutput("trigger_gravity", "OnEndTouch", Hook_EntityOutput);
 
     if (g_late) {
         for (int e = 0; e < sizeof(Client::touching); ++e) {
@@ -102,14 +106,17 @@ public void OnEntityCreated(int entity, const char[] classname)
 {
     g_engine.Initialize(entity, classname);
 
-    if (StrEqual(classname, "trigger_push")) {
+    bool push = StrEqual(classname, "trigger_push");
+    if (StrEqual(classname, "trigger_multiple") || push || StrEqual(classname, "trigger_gravity")) {
         for (int i = 0; i < sizeof(g_clients); ++i) {
             g_clients[i].touching[entity] = false;
         }
 
-        SDKHook(entity, SDKHook_StartTouch, Hook_PushStartTouch);
-        SDKHook(entity, SDKHook_EndTouchPost, Hook_PushEndTouchPost);
-        SDKHook(entity, SDKHook_Touch, Hook_PushTouch);
+        SDKHook(entity, SDKHook_StartTouch, Hook_TriggerStartTouch);
+        SDKHook(entity, SDKHook_EndTouchPost, Hook_TriggerEndTouchPost);
+        if (push) {
+            SDKHook(entity, SDKHook_Touch, Hook_TriggerPushTouch);
+        }
     }
 }
 
@@ -147,7 +154,7 @@ void Hook_ClientPreThinkPost(int client)
     g_clients[client].frame += GetEntDataFloat(client, g_engine.m_flLaggedMovementValue);
 }
 
-Action Hook_PushStartTouch(int entity, int other)
+Action Hook_TriggerStartTouch(int entity, int other)
 {
     if (other > sizeof(g_clients) - 1) {
         return Plugin_Continue;
@@ -187,7 +194,7 @@ Action Hook_PushStartTouch(int entity, int other)
     return Plugin_Continue;
 }
 
-void Hook_PushEndTouchPost(int entity, int other)
+void Hook_TriggerEndTouchPost(int entity, int other)
 {
     if (other > sizeof(g_clients) - 1) {
         return;
@@ -214,7 +221,7 @@ void Hook_PushEndTouchPost(int entity, int other)
     }
 }
 
-Action Hook_PushTouch(int entity, int other)
+Action Hook_TriggerPushTouch(int entity, int other)
 {
     if (other > sizeof(g_clients) - 1) {
         return Plugin_Continue;
