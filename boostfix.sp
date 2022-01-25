@@ -183,7 +183,7 @@ Action Hook_PushStartTouch(int entity, int other)
         return Plugin_Continue;
     }
 
-    if (g_boostfix_crouchboostfix.BoolValue && g_clients[other].endTouchFrame[entity] != -1.0 && g_clients[other].frame - g_clients[other].endTouchFrame[entity] < CROUCHBOOST_TIME / GetTickInterval()) {
+    if (g_clients[other].endTouchFrame[entity] != -1.0 && g_clients[other].frame - g_clients[other].endTouchFrame[entity] < CROUCHBOOST_TIME / GetTickInterval()) {
         bool startTouchUnduck = false;
 
         if (!g_clients[other].endTouchDuck[entity]) {
@@ -257,7 +257,7 @@ Action Hook_PushTouch(int entity, int other)
         return Plugin_Continue;
     }
 
-    if (!g_clients[other].touching[entity]) {
+    if (g_boostfix_crouchboostfix.BoolValue && !g_clients[other].touching[entity]) {
         return Plugin_Handled;
     }
 
