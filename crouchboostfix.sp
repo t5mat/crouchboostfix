@@ -6,11 +6,11 @@
 #pragma newdecls required
 
 public Plugin myinfo = {
-    name = "boostfix",
+    name = "crouchboostfix",
     version = "1.0.0",
     author = "https://github.com/t5mat",
-    description = "Fixes buggy push triggers; prevents crouchboosting",
-    url = "https://github.com/t5mat/boostfix",
+    description = "Prevents crouchboosting",
+    url = "https://github.com/t5mat/crouchboostfix",
 };
 
 #define CROUCHBOOST_TIME (0.25)
@@ -58,7 +58,7 @@ enum struct Client
 }
 
 bool g_late;
-ConVar g_boostfix_crouchboostfix;
+ConVar g_crouchboostfix_enabled;
 Engine g_engine;
 Client g_clients[MAXPLAYERS + 1];
 
@@ -69,7 +69,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
         return APLRes_Failure;
     }
 
-    RegPluginLibrary("boostfix");
+    RegPluginLibrary("crouchboostfix");
 
     g_late = late;
     return APLRes_Success;
@@ -79,7 +79,7 @@ public void OnPluginStart()
 {
     g_engine.Initialize();
 
-    g_boostfix_crouchboostfix = CreateConVar("boostfix_crouchboostfix", "1", "Enable crouchboost prevention", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+    g_crouchboostfix_enabled = CreateConVar("crouchboostfix_enabled", "1", "Enable crouchboost prevention", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 
     AutoExecConfig();
 
@@ -134,7 +134,7 @@ Action Hook_EntityOutput(const char[] output, int caller, int activator, float d
         return Plugin_Continue;
     }
 
-    if (g_boostfix_crouchboostfix.BoolValue && !g_clients[activator].touching[caller]) {
+    if (g_crouchboostfix_enabled.BoolValue && !g_clients[activator].touching[caller]) {
         return Plugin_Handled;
     }
 
@@ -223,7 +223,7 @@ Action Hook_PushTouch(int entity, int other)
         return Plugin_Continue;
     }
 
-    if (g_boostfix_crouchboostfix.BoolValue && !g_clients[other].touching[entity]) {
+    if (g_crouchboostfix_enabled.BoolValue && !g_clients[other].touching[entity]) {
         return Plugin_Handled;
     }
 
