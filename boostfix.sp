@@ -126,6 +126,9 @@ public void OnPluginStart()
 
     AutoExecConfig();
 
+    HookEntityOutput("trigger_push", "OnStartTouch", Hook_EntityOutput);
+    HookEntityOutput("trigger_push", "OnEndTouch", Hook_EntityOutput);
+
     if (g_late) {
         for (int e = 0; e < sizeof(Client::touching); ++e) {
             if (IsValidEntity(e)) {
@@ -153,7 +156,7 @@ public void OnEntityCreated(int entity, const char[] classname)
         }
 
         SDKHook(entity, SDKHook_StartTouch, Hook_PushStartTouch);
-        SDKHook(entity, SDKHook_EndTouch, Hook_PushEndTouch);
+        SDKHook(entity, SDKHook_EndTouchPost, Hook_PushEndTouchPost);
         SDKHook(entity, SDKHook_Touch, Hook_PushTouch);
     }
 }
@@ -166,6 +169,19 @@ public void OnClientPutInServer(int client)
     }
 
     SDKHook(client, SDKHook_PreThinkPost, Hook_ClientPreThinkPost);
+}
+
+Action Hook_EntityOutput(const char[] output, int caller, int activator, float delay)
+{
+    if (activator < 1 || activator > sizeof(g_clients) - 1) {
+        return Plugin_Continue;
+    }
+
+    if (g_boostfix_crouchboostfix.BoolValue && !g_clients[activator].touching[caller]) {
+        return Plugin_Handled;
+    }
+
+    return Plugin_Continue;
 }
 
 void Hook_ClientPreThinkPost(int client)
@@ -214,18 +230,13 @@ Action Hook_PushStartTouch(int entity, int other)
         g_clients[other].touching[entity] = true;
     }
 
-    if (!g_clients[other].touching[entity]) {
-        // Prevent outputs from being queued
-        return Plugin_Handled;
-    }
-
     return Plugin_Continue;
 }
 
-Action Hook_PushEndTouch(int entity, int other)
+void Hook_PushEndTouchPost(int entity, int other)
 {
     if (other > sizeof(g_clients) - 1) {
-        return Plugin_Continue;
+        return;
     }
 
     g_clients[other].touching[entity] = false;
@@ -247,8 +258,6 @@ Action Hook_PushEndTouch(int entity, int other)
             }
         }
     }
-
-    return Plugin_Continue;
 }
 
 Action Hook_PushTouch(int entity, int other)
