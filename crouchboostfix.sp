@@ -177,7 +177,6 @@ Action Hook_TriggerStartTouch(int entity, int other)
                         // This StartTouch was caused by a mid-air unduck
                         startTouchUnduck = true;
                     }
-
                 }
             }
         }
