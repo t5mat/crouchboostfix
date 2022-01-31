@@ -132,6 +132,12 @@ public void OnClientPutInServer(int client)
 
 Action Hook_EntityOutput(const char[] output, int caller, int activator, float delay)
 {
+    caller = EntRefToEntIndex(caller);
+    if (caller == -1 || caller > sizeof(Client::touching) - 1) {
+        return Plugin_Continue;
+    }
+
+    activator = EntRefToEntIndex(activator);
     if (activator < 1 || activator > sizeof(g_clients) - 1) {
         return Plugin_Continue;
     }
