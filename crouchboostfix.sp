@@ -110,6 +110,7 @@ public void OnEntityCreated(int entity, const char[] classname)
     if (StrEqual(classname, "trigger_multiple") || push || StrEqual(classname, "trigger_gravity")) {
         for (int i = 0; i < sizeof(g_clients); ++i) {
             g_clients[i].touching[entity] = false;
+            g_clients[i].endTouchFrame[entity] = -1.0;
         }
 
         SDKHook(entity, SDKHook_StartTouch, Hook_TriggerStartTouch);
