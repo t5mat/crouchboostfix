@@ -36,9 +36,9 @@ enum struct Engine
             (this.m_flLaggedMovementValue = FindSendPropInfo("CBasePlayer", "m_flLaggedMovementValue")) == -1 && SetFailState("CBasePlayer::m_flLaggedMovementValue");
         }
 
-        static bool base = false;
-        if (!base && entity != -1) {
-            base = true;
+        static bool CBaseEntity = false;
+        if (!CBaseEntity && entity != -1) {
+            CBaseEntity = true;
             (this.m_vecAbsOrigin = FindDataMapInfo(entity, "m_vecAbsOrigin")) == -1 && SetFailState("CBaseEntity::m_vecAbsOrigin");
             (this.m_vecAbsVelocity = FindDataMapInfo(entity, "m_vecAbsVelocity")) == -1 && SetFailState("CBaseEntity::m_vecAbsVelocity");
         }
@@ -53,7 +53,7 @@ enum struct Client
     float maxs[3];
     int flags;
     float frame;
-    bool touching[MAX_ENTITIES];
+    bool validTouch[MAX_ENTITIES];
     float endTouchFrame[MAX_ENTITIES];
     bool endTouchDuck[MAX_ENTITIES];
 }
@@ -86,7 +86,7 @@ public void OnPluginStart()
     HookEntityOutput("trigger_gravity", "OnEndTouch", Hook_EntityOutput);
 
     if (g_late) {
-        for (int e = 0; e < sizeof(Client::touching); ++e) {
+        for (int e = 0; e < sizeof(Client::validTouch); ++e) {
             if (IsValidEntity(e)) {
                 char classname[64];
                 GetEntityClassname(e, classname, sizeof(classname));
@@ -109,7 +109,7 @@ public void OnEntityCreated(int entity, const char[] classname)
     bool push = StrEqual(classname, "trigger_push");
     if (StrEqual(classname, "trigger_multiple") || push || StrEqual(classname, "trigger_gravity")) {
         for (int i = 0; i < sizeof(g_clients); ++i) {
-            g_clients[i].touching[entity] = false;
+            g_clients[i].validTouch[entity] = false;
             g_clients[i].endTouchFrame[entity] = -1.0;
         }
 
@@ -134,7 +134,7 @@ public void OnClientPutInServer(int client)
 Action Hook_EntityOutput(const char[] output, int caller, int activator, float delay)
 {
     caller = EntRefToEntIndex(caller);
-    if (caller == -1 || caller > sizeof(Client::touching) - 1) {
+    if (caller == -1 || caller > sizeof(Client::validTouch) - 1) {
         return Plugin_Continue;
     }
 
@@ -143,7 +143,7 @@ Action Hook_EntityOutput(const char[] output, int caller, int activator, float d
         return Plugin_Continue;
     }
 
-    if (g_crouchboostfix_enabled.BoolValue && !g_clients[activator].touching[caller]) {
+    if (g_crouchboostfix_enabled.BoolValue && !g_clients[activator].validTouch[caller]) {
         return Plugin_Handled;
     }
 
@@ -180,7 +180,7 @@ Action Hook_TriggerStartTouch(int entity, int other)
                     origin = g_clients[other].velocity;
                     ScaleVector(origin, GetTickInterval() * GetEntDataFloat(other, g_engine.m_flLaggedMovementValue));
                     AddVectors(origin, g_clients[other].origin, origin);
-                    if (!DoesHullEntityIntersect(origin, g_clients[other].mins, g_clients[other].maxs, entity)) {
+                    if (!DoHullEntityIntersect(origin, g_clients[other].mins, g_clients[other].maxs, entity)) {
                         // This StartTouch was caused by a mid-air unduck
                         startTouchUnduck = true;
                     }
@@ -192,9 +192,9 @@ Action Hook_TriggerStartTouch(int entity, int other)
         // - the last EndTouch was caused by a mid-air duck, or
         // - this StartTouch was caused by a mid-air unduck
         // then this StartTouch is considered "invalid", disable pushing so we don't get boosted again
-        g_clients[other].touching[entity] = !(g_clients[other].endTouchDuck[entity] || startTouchUnduck);
+        g_clients[other].validTouch[entity] = !(g_clients[other].endTouchDuck[entity] || startTouchUnduck);
     } else {
-        g_clients[other].touching[entity] = true;
+        g_clients[other].validTouch[entity] = true;
     }
 
     return Plugin_Continue;
@@ -206,7 +206,7 @@ void Hook_TriggerEndTouchPost(int entity, int other)
         return;
     }
 
-    g_clients[other].touching[entity] = false;
+    g_clients[other].validTouch[entity] = false;
     g_clients[other].endTouchFrame[entity] = g_clients[other].frame;
     g_clients[other].endTouchDuck[entity] = false;
 
@@ -219,7 +219,7 @@ void Hook_TriggerEndTouchPost(int entity, int other)
             origin = g_clients[other].velocity;
             ScaleVector(origin, GetTickInterval() * GetEntDataFloat(other, g_engine.m_flLaggedMovementValue));
             AddVectors(origin, g_clients[other].origin, origin);
-            if (DoesHullEntityIntersect(origin, g_clients[other].mins, g_clients[other].maxs, entity)) {
+            if (DoHullEntityIntersect(origin, g_clients[other].mins, g_clients[other].maxs, entity)) {
                 // This EndTouch was caused by a mid-air duck
                 g_clients[other].endTouchDuck[entity] = true;
             }
@@ -233,27 +233,27 @@ Action Hook_TriggerPushTouch(int entity, int other)
         return Plugin_Continue;
     }
 
-    if (g_crouchboostfix_enabled.BoolValue && !g_clients[other].touching[entity]) {
+    if (g_crouchboostfix_enabled.BoolValue && !g_clients[other].validTouch[entity]) {
         return Plugin_Handled;
     }
 
     return Plugin_Continue;
 }
 
-bool g_DoesHullEntityIntersect_hit;
+bool g_DoHullEntityIntersect_hit;
 
-bool DoesHullEntityIntersect(const float origin[3], const float mins[3], const float maxs[3], int entity, int mask = PARTITION_TRIGGER_EDICTS)
+bool DoHullEntityIntersect(const float origin[3], const float mins[3], const float maxs[3], int entity, int mask = PARTITION_TRIGGER_EDICTS)
 {
-    g_DoesHullEntityIntersect_hit = false;
-    TR_EnumerateEntitiesHull(origin, origin, mins, maxs, mask, Trace_DoesHullEntityIntersect, entity);
-    return g_DoesHullEntityIntersect_hit;
+    g_DoHullEntityIntersect_hit = false;
+    TR_EnumerateEntitiesHull(origin, origin, mins, maxs, mask, Trace_DoHullEntityIntersect, entity);
+    return g_DoHullEntityIntersect_hit;
 }
 
-bool Trace_DoesHullEntityIntersect(int entity, any data)
+bool Trace_DoHullEntityIntersect(int entity, any data)
 {
     if (entity == data) {
         TR_ClipCurrentRayToEntity(MASK_ALL, entity);
-        g_DoesHullEntityIntersect_hit = TR_DidHit();
+        g_DoHullEntityIntersect_hit = TR_DidHit();
         return false;
     }
     return true;
